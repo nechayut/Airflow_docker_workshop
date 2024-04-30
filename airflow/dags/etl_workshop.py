@@ -6,39 +6,37 @@ from airflow.utils.dates import days_ago
 from datetime import timedelta
 
 import pandas as pd
-import pymysql.cursors
+import sqlalchemy
 import requests
 
 
 class Config:
-    MYSQL_HOST = os.getenv("MYSQL_HOST")
-    MYSQL_PORT = int(os.getenv("MYSQL_PORT"))
-    MYSQL_USER = os.getenv("MYSQL_USER")
-    MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-    MYSQL_DB = os.getenv("MYSQL_DB")
-    MYSQL_CHARSET = os.getenv("MYSQL_CHARSET")
+    MYSQL_HOST = os.getenv('MYSQL_HOST')
+    MYSQL_PORT = int(os.getenv('MYSQL_PORT'))
+    MYSQL_USER = os.getenv('MYSQL_USER')
+    MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD')
+    MYSQL_DB = os.getenv('MYSQL_DB')
 
 # For PythonOperator
 
 def get_data_from_db():
 
     # Connect to the database
-    connection = pymysql.connect(host=Config.MYSQL_HOST,
-                                port=Config.MYSQL_PORT,
-                                user=Config.MYSQL_USER,
-                                password=Config.MYSQL_PASSWORD,
-                                db=Config.MYSQL_DB,
-                                charset=Config.MYSQL_CHARSET,
-                                cursorclass=pymysql.cursors.DictCursor)
+        engine = sqlalchemy.create_engine(
+        "mysql+pymysql://{user}:{password}@{host}:{port}/{db}".format(
+            user=Config.MYSQL_USER,
+            password=Config.MYSQL_PASSWORD,
+            host=Config.MYSQL_HOST,
+            port=Config.MYSQL_PORT,
+            db=Config.MYSQL_DB,
+        )
+    )
 
 
-    with connection.cursor() as cursor:
-        # Read a single record
-        sql = "SELECT * from online_retail"
-        cursor.execute(sql)
-        result_retail = cursor.fetchall()
+    
 
-    retail = pd.DataFrame(result_retail)
+    sql = "SELECT * FROM online_retail"
+    retail = pd.read_sql_query(sql, engine)
     retail['InvoiceTimestamp'] = retail['InvoiceDate']
     retail['InvoiceDate'] = pd.to_datetime(retail['InvoiceDate']).dt.date
     retail.to_csv("/home/airflow/data/retail_from_db.csv", index=False)
